@@ -274,6 +274,7 @@ task.spawn(function()
         local data = Steal.Data[prompt]
         if not data.ready then return end
         data.ready = false
+        autoStealBusy = true
         isStealing = true
         currentStealPrompt = prompt
 
@@ -291,7 +292,7 @@ task.spawn(function()
             local hrp = getStealHRP()
             local targetPos = getPromptPosition(prompt)
             if not Steal.AutoStealEnabled or not hrp or not targetPos or (targetPos - hrp.Position).Magnitude > ACTIVE_RADIUS then
-                isStealing = false; currentStealPrompt = nil; data.ready = true; return
+                isStealing = false; currentStealPrompt = nil; data.ready = true; autoStealBusy = false; return
             end
             setBar(math.clamp((tick() - startTime) / totalTime, 0, threshold))
             task.wait()
@@ -303,7 +304,7 @@ task.spawn(function()
             local hrp = getStealHRP()
             local targetPos = getPromptPosition(prompt)
             if not Steal.AutoStealEnabled or not hrp or not targetPos or (targetPos - hrp.Position).Magnitude > ACTIVE_RADIUS then
-                isStealing = false; currentStealPrompt = nil; data.ready = true; return
+                isStealing = false; currentStealPrompt = nil; data.ready = true; autoStealBusy = false; return
             end
             local fin = (tick() - resumeTime) / math.max(timeAfterThreshold, 0.01)
             setBar(threshold + fin * (1 - threshold))
@@ -316,6 +317,7 @@ task.spawn(function()
         data.ready = true
         isStealing = false
         currentStealPrompt = nil
+        autoStealBusy = false
         setBar(0)
     end
 
@@ -340,6 +342,7 @@ task.spawn(function()
     gui.IgnoreGuiInset = true
     gui.ResetOnSpawn = false
     gui.DisplayOrder = 200
+    gui.Enabled = false -- UI oculta; la lógica de AutoSteal sigue activa
     gui.Parent = pg
 
     main = Instance.new("Frame")
@@ -770,6 +773,7 @@ task.spawn(function()
     local camera = workspace.CurrentCamera
 
     local cached = {}
+    local autoStealBusy = false
 
     local function cacheCharacter()
         local char = player.Character
@@ -814,6 +818,8 @@ task.spawn(function()
     end
 
     local function removeRagdollConstraints()
+        -- No tocar las constraints mientras Instant/Auto Steal está procesando.
+        if autoStealBusy then return end
         for _, v in ipairs(cached.character:GetDescendants()) do
             if v:IsA("BallSocketConstraint") or 
                (v:IsA("Attachment") and v.Name:find("RagdollAttachment")) then
